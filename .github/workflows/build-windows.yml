@@ -1,0 +1,81 @@
+name: Build Ven0m Windows EXE and Installer
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Force predictable Unicode handling on hosted Windows runners.
+env:
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: "utf-8"
+
+jobs:
+  windows-build:
+    runs-on: windows-2022
+    timeout-minutes: 55
+    steps:
+      - name: Checkout full source and gift icons
+        uses: actions/checkout@v4
+
+      - name: Select Python 3.12 x64 only on the BUILD server
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: 'x64'
+          cache: 'pip'
+          cache-dependency-path: TikTokAssistant/requirements.txt
+
+      - name: Confirm full project and Python Unicode configuration
+        shell: pwsh
+        run: |
+          python -c "import sys; print('Python:',sys.version); print('UTF-8 mode:',sys.flags.utf8_mode); assert sys.flags.utf8_mode == 1"
+          if (-not (Test-Path 'TikTokAssistant/overlay.html')) { throw 'Project files are missing. Upload the EXTRACTED repository, not the ZIP archive.' }
+          if (-not (Test-Path 'TikTokAssistant/tests/test_v61.py')) { throw 'Test source files missing.' }
+          $gifts = @(Get-ChildItem 'TikTokAssistant/assets/gifts' -Filter '*.png' -File -ErrorAction Stop).Count
+          Write-Host "Gift icons checked: $gifts"
+          if ($gifts -lt 786) { throw "Expected at least 786 gift icons; found $gifts" }
+
+      - name: Build program and bundle all runtime dependencies
+        shell: pwsh
+        working-directory: TikTokAssistant
+        run: ./tools/build_windows.ps1
+
+      - name: Test actual frozen Windows workers and Overlay URLs
+        shell: pwsh
+        working-directory: TikTokAssistant
+        run: python tools/smoke_windows.py
+
+      - name: Package self-contained Portable folder as ZIP
+        shell: pwsh
+        working-directory: TikTokAssistant
+        run: |
+          Compress-Archive -Path 'dist/Ven0m_TikTok_LIVE_Assistant' -DestinationPath 'dist/Ven0m_TikTok_LIVE_Assistant_Portable_x64.zip' -CompressionLevel Optimal
+
+      - name: Install Inno Setup ONLY on the build server
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Produce one offline installer EXE
+        shell: pwsh
+        working-directory: TikTokAssistant
+        run: |
+          $candidates = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+          )
+          $iscc = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { throw 'Inno Setup ISCC.exe is missing on the build runner' }
+          & $iscc 'Ven0m_Setup.iss'
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup packaging failed.' }
+
+      - name: Upload Portable ZIP and standalone Setup EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ven0m_Windows_Release_v6_3_1_Beta
+          path: |
+            TikTokAssistant/dist/Ven0m_TikTok_LIVE_Assistant_Portable_x64.zip
+            TikTokAssistant/dist_installer/Ven0m_TikTok_LIVE_Assistant_Setup_x64.exe
+          if-no-files-found: error
+          retention-days: 30

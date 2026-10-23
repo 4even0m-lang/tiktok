@@ -1,0 +1,70 @@
+<!doctype html><html lang="ar"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box} html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#172233}
+#stage{position:absolute;inset:0;background:#172233;overflow:hidden}
+#canvas{position:absolute;width:1280px;height:720px;transform-origin:0 0;direction:ltr;background-color:#243449;
+ background-image:linear-gradient(45deg,#344761 25%,transparent 25%),linear-gradient(-45deg,#344761 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#344761 75%),linear-gradient(-45deg,transparent 75%,#344761 75%);
+ background-size:24px 24px;background-position:0 0,0 12px,12px -12px,-12px 0}
+.layer{position:absolute;overflow:hidden;cursor:move;touch-action:none;user-select:none}
+.layer.selected{outline:2px dashed #38d7ff;outline-offset:-2px;background-clip:padding-box}
+.layer.selected::after{content:'';pointer-events:none;position:absolute;bottom:0;right:0;width:10px;height:10px;border-radius:2px;background:#38d7ff}
+.layer .content{width:100%;height:100%;overflow:hidden;pointer-events:none;white-space:pre-wrap;overflow-wrap:anywhere}
+.layer video,.layer img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;background:transparent}
+#placeholder{position:absolute;inset:0;display:flex;justify-content:center;align-items:center;pointer-events:none;direction:rtl;color:#d6e8fa;font:24px 'Segoe UI',Tahoma,Arial,sans-serif;text-align:center}
+</style><script src="qrc:///qtwebchannel/qwebchannel.js"></script></head>
+<body><div id="stage"><div id="canvas"><div id="placeholder">اللوحة فارغة — أضف عنصرًا لبدء التصميم<br>Empty canvas — add a layer to begin</div></div></div>
+<script>
+(()=>{'use strict';
+ const canvas=document.getElementById('canvas'); const placeholder=document.getElementById('placeholder');
+ const current=new Map();let selected='';let playing=true;let bridge=null;
+ if(window.qt&&window.QWebChannel){new QWebChannel(qt.webChannelTransport,channel=>{bridge=channel.objects.editorBridge;});}
+ function fit(){const scale=Math.min(innerWidth/1280,innerHeight/720);canvas.style.transform=`scale(${scale})`;
+   canvas.style.left=Math.round((innerWidth-1280*scale)/2)+'px';canvas.style.top=Math.round((innerHeight-720*scale)/2)+'px';}
+ addEventListener('resize',fit);fit();
+ const preview={user:'مشاهد',gift:'Rose',count:1,coins:100,total:200,threshold:100,likes:50,total_likes:5000,comment:'مرحباً'};
+ function tokens(s){return String(s??'').replace(/\{(user|username|gift|gift_name|count|coins|total|threshold|likes|total_likes|comment)\}/g,(_,key)=>String(preview[key==='username'?'user':key==='gift_name'?'gift':key]));}
+ function notifySelect(id){if(bridge)bridge.selectLayer(id);}
+ function beginDrag(evt,id,box){if(evt.button!==0)return;evt.preventDefault();evt.stopPropagation();select(id);notifySelect(id);
+   const sx=evt.clientX,sy=evt.clientY;const originX=parseFloat(box.style.left)||0,originY=parseFloat(box.style.top)||0;
+   const scale=canvas.getBoundingClientRect().width/1280;
+   box.setPointerCapture(evt.pointerId);
+   function moving(event){const x=Math.max(0,Math.min(1279,Math.round(originX+(event.clientX-sx)/scale)));
+     const y=Math.max(0,Math.min(719,Math.round(originY+(event.clientY-sy)/scale)));
+     box.style.left=x+'px';box.style.top=y+'px';}
+   function end(event){box.removeEventListener('pointermove',moving);box.removeEventListener('pointerup',end);box.removeEventListener('pointercancel',end);
+     const x=Math.round(parseFloat(box.style.left)),y=Math.round(parseFloat(box.style.top));if(bridge)bridge.moveLayer(id,x,y);}
+   box.addEventListener('pointermove',moving);box.addEventListener('pointerup',end);box.addEventListener('pointercancel',end);
+ }
+ function select(id){selected=String(id||'');for(const [key,node] of current)node.box.classList.toggle('selected',key===selected);}
+ window.selectVisual=select;
+ window.updateVisual=(data,selectedId)=>{
+   const layers=Array.isArray(data)?data:[];const ids=new Set();placeholder.style.display=layers.length?'none':'flex';
+   for(const layer of layers){if(!layer||!['text','rect','image','video'].includes(layer.type))continue;
+     const id=String(layer.id);ids.add(id);let node=current.get(id);
+     if(!node||node.type!==layer.type){if(node)node.box.remove();const box=document.createElement('div');box.className='layer';
+       const inner=layer.type==='video'?document.createElement('video'):layer.type==='image'?document.createElement('img'):document.createElement('div');
+       inner.className='content';if(layer.type==='video'){inner.loop=true;inner.muted=true;inner.autoplay=true;inner.playsInline=true;inner.preload='auto';}
+       box.appendChild(inner);box.addEventListener('pointerdown',event=>beginDrag(event,id,box));
+       canvas.appendChild(box);node={box,inner,type:layer.type,src:''};current.set(id,node);}
+     const {box,inner}=node;box.style.left=Number(layer.x||0)+'px';box.style.top=Number(layer.y||0)+'px';
+     box.style.width=Number(layer.w??320)+'px';box.style.height=Number(layer.h??80)+'px';
+     box.style.opacity=Number(layer.opacity??100)/100;box.style.borderRadius=Number(layer.radius??0)+'px';
+     if(layer.type==='text'){
+       inner.textContent=tokens(layer.text);inner.setAttribute('dir',layer.direction==='ltr'?'ltr':layer.direction==='auto'?'auto':'rtl');
+       inner.style.direction=layer.direction==='auto'?'inherit':layer.direction==='ltr'?'ltr':'rtl';
+       inner.style.unicodeBidi='plaintext';
+       inner.style.textAlign=['left','center','right'].includes(layer.align)?layer.align:'right';
+       inner.style.fontFamily=String(layer.font||'Segoe UI');inner.style.fontSize=Number(layer.font_size||36)+'px';
+       inner.style.fontWeight=layer.bold?'700':'400';inner.style.color=layer.color||'#fff';
+       inner.style.textShadow='0 2px 4px #0007';inner.style.background='transparent';
+     }else if(layer.type==='rect')inner.style.background=layer.background||'#202A40';
+     else{const src=String(layer.preview_uri||'');if(src!==node.src){node.src=src;if(src)inner.src=src;else inner.removeAttribute('src');}
+       if(layer.type==='video'){if(!playing)inner.pause();else if(src&&inner.paused)inner.play().catch(()=>{});}}
+   }
+   for(const [id,node] of current){if(!ids.has(id)){node.box.remove();current.delete(id);}}
+   select(selectedId===undefined?selected:selectedId);
+ };
+ window.setPreviewPlaying=(state)=>{playing=!!state;for(const node of current.values())if(node.type==='video'){
+   if(playing&&node.src)node.inner.play().catch(()=>{});else node.inner.pause();}};
+})();
+</script></body></html>

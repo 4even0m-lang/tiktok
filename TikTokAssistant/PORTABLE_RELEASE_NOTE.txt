@@ -1,0 +1,7 @@
+Ven0m TikTok LIVE Assistant v6.3.1 Beta — Windows Installer/Portable release
+
+Target Windows PC: install nothing else. The Setup EXE contains the Python runtime, PySide6, TikTokLive, icons and video helper. Internet is only needed for actual TikTok LIVE connections (and any ordinary online features).
+
+Use the top-level README_BUILD_NO_PYTHON.md to create the EXE via the Windows cloud build. This ZIP you are reading is SOURCE + BUILD WORKFLOW, NOT a finished EXE.
+
+The installer is unsigned. Do not disable antivirus or Windows security. Hosts mapping always requires explicit user approval for its UAC prompt. Project-specific video/audio files imported outside assets must be copied/imported separately. Review third-party FFmpeg licensing obligations before redistributing to third parties.

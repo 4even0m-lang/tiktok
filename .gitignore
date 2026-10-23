@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv*/
+build/
+dist/
+dist_installer/
+TikTokAssistant/.venv*/
+TikTokAssistant/build/
+TikTokAssistant/dist/
+TikTokAssistant/dist_installer/
+TikTokAssistant/settings.json
+TikTokAssistant/gift_catalog.json
+TikTokAssistant/*.log
+*.spec

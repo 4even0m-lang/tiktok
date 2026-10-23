@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TikTok LIVE Assistant — Transparent Overlay v4</title>
+<style>
+/* Do not add a fullscreen background: Browser Source must receive alpha pixels. */
+:root { --accent:#ad83ff; color-scheme:normal; background:transparent!important; }
+*,*::before,*::after { box-sizing:border-box; }
+html,body { width:100%;height:100%;margin:0;padding:0;overflow:hidden;
+  background:transparent!important;background-color:rgba(0,0,0,0)!important;
+  color:#fff;font-family:'Segoe UI',Tahoma,Arial,sans-serif; }
+#wrap {position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:center;
+ padding:0 24px 8vh;pointer-events:none;background:transparent!important;}
+#card { --accent:#ad83ff;position:relative;display:flex;align-items:center;gap:20px;
+ width:min(760px,100%);min-height:124px;padding:24px 27px;
+ border:2px solid var(--accent);border-radius:23px;
+ background:linear-gradient(115deg,rgba(35,20,68,.96),rgba(9,22,44,.96));
+ box-shadow:0 12px 54px color-mix(in srgb,var(--accent),transparent 65%);
+ opacity:0;transform:translateY(48px) scale(.94);visibility:hidden;
+ transition:opacity .35s ease,transform .35s ease,visibility .35s ease;isolation:isolate;}
+#card.visible {opacity:1;transform:translateY(0) scale(1);visibility:visible;animation:pop .52s ease}
+#symbol {font-size:62px;flex:0 0 auto;filter:drop-shadow(0 3px 14px #0008)}
+#picture {max-width:210px;max-height:150px;object-fit:contain;display:none;border-radius:12px}
+#clip {width:min(340px,48vw);max-height:210px;object-fit:contain;display:none;border-radius:13px;
+ background:transparent;flex:0 1 auto;}
+#info {min-width:0;flex:1}
+#name {font-size:30px;font-weight:850;line-height:1.3;overflow-wrap:anywhere;text-shadow:0 2px 10px #000b}
+#description {font-size:21px;color:#f5e8ff;line-height:1.4;margin-top:6px;overflow-wrap:anywhere;text-shadow:0 2px 7px #000b}
+#card.gold {background:linear-gradient(125deg,#503313f4,#190f27f4);border-color:#ffd277;box-shadow:0 6px 65px #ffc46070}
+#card.royal {background:linear-gradient(125deg,#361c65f4,#100d35f8);box-shadow:0 4px 62px #946aff77}
+#card.fire {background:linear-gradient(125deg,#65251de9,#210a20f4);box-shadow:0 5px 65px #ff593d85}
+#card.minimal {background:rgba(14,26,45,.85);border-radius:10px;box-shadow:0 10px 22px #0005}
+#card.cyber {background:linear-gradient(120deg,#021c34ee,#042c32ef);border-radius:8px;box-shadow:0 0 24px #20f3eb88,inset 0 0 18px #00cba333;border-style:solid}
+#card.galaxy {background:radial-gradient(circle at 23% 20%,#5f4089ed,transparent 48%),linear-gradient(130deg,#101440f2,#130a32f2);box-shadow:0 0 70px #735fff77}
+#card.galaxy::before {content:'✦  ⋆  ✧   ⋆   ✦  ⋆';position:absolute;inset:6px;color:#bcb2ff77;letter-spacing:38px;font-size:19px;z-index:-1;animation:twinkle 2s ease-in-out infinite alternate;overflow:hidden}
+#card.confetti {background:linear-gradient(115deg,#391b52f2,#362e64f4);box-shadow:0 0 52px #ff7ac166}
+#card.confetti::before {content:'🎊  ✦   ✶   ★   🎉';position:absolute;top:-36px;inset-inline:0;text-align:center;font-size:26px;animation:confetti .8s ease-in-out infinite alternate}
+#card.crystal {background:linear-gradient(115deg,#153e51df,#1a3d63dc);border-color:#86ecff;box-shadow:0 0 55px #7ce7ff88;backdrop-filter:blur(6px)}
+#card.pixel {background:#15282d;border-width:4px;border-radius:1px;box-shadow:9px 9px 0 #a2ef7290;font-family:Consolas,monospace}
+#card.image {background:linear-gradient(115deg,#23253aef,#11182bef)}
+#card.video {background:rgba(11,15,27,.68);border-color:var(--accent);max-width:920px}
+#card.image #picture {display:block}
+#card.video #clip {display:block}
+#card.video #symbol {display:none}
+#card.media-only #info {display:none}
+#card.media-only {width:auto;min-width:250px;padding:0;border:0;box-shadow:none;background:transparent!important}
+#card.media-only #clip {width:min(800px,90vw);max-height:70vh}
+@keyframes pop {from {filter:brightness(1.6)}to {filter:brightness(1)}}
+@keyframes twinkle {from {opacity:.35}to {opacity:1}}
+@keyframes confetti {from {transform:translateY(-7px) rotate(-4deg)}to {transform:translateY(8px) rotate(4deg)}}
+/* The checkerboard is enabled only in embedded preview mode. The real Overlay stays transparent. */
+body.preview-mode {background-color:#1c2b40!important;
+ background-image:linear-gradient(45deg,#30425a 25%,transparent 25%),
+ linear-gradient(-45deg,#30425a 25%,transparent 25%),
+ linear-gradient(45deg,transparent 75%,#30425a 75%),
+ linear-gradient(-45deg,transparent 75%,#30425a 75%)!important;
+ background-position:0 0,0 12px,12px -12px,-12px 0!important;
+ background-size:24px 24px!important;}
+body.preview-mode #wrap {padding-bottom:4vh;}
+body.preview-mode #card {width:min(720px,95%);}
+#unlock {position:fixed;top:12px;right:12px;pointer-events:auto;display:none;cursor:pointer;
+ background:#203c5de9;color:#fff;padding:8px 12px;border:1px solid #b0c2ee;border-radius:8px}
+</style>
+</head>
+<body>
+<div id="custom" style="position:fixed;inset:0;pointer-events:none;overflow:hidden;display:none"><div id="customCanvas" style="position:absolute;left:0;top:0;width:1280px;height:720px;transform-origin:top left"></div></div>
+<div id="wrap"><div id="card" role="status" aria-live="polite">
+<span id="symbol">🎁</span>
+<img id="picture" alt="">
+<video id="clip" playsinline preload="auto"></video>
+<div id="info"><div id="name"></div><div id="description"></div></div>
+</div></div>
+<button id="unlock" type="button">🔊 Enable audio / تفعيل الصوت</button>
+<audio id="sound" preload="auto"></audio>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const previewMode = new URLSearchParams(location.search).get('preview') === '1';
+  if(previewMode) document.body.classList.add('preview-mode');
+  const card = $('card'),symbol=$('symbol'),picture=$('picture'),clip=$('clip');
+  const name=$('name'),description=$('description'),audio=$('sound'),unlock=$('unlock');
+  const supported = new Set(['neon','gold','royal','fire','minimal','cyber','galaxy','confetti','crystal','pixel','image','video']);
+  let busy = false;
+  const queue = [];
+  let currentTimer=null;
+  const clamp = (n,a,b,d) => Number.isFinite(Number(n)) ? Math.max(a,Math.min(b,Number(n))) : d;
+  const keys = {'{user}':'username','{gift}':'gift_name','{count}':'quantity',
+    '{coins}':'coins','{total}':'coins_total','{threshold}':'threshold','{likes}':'likes','{total_likes}':'total_likes','{comment}':'comment'};
+  function substitute(value,item) { return String(value).replace(/\{(?:user|gift|count|coins|total|threshold|likes|total_likes|comment)\}/g,
+    key => String(item[keys[key]] ?? '0')); }
+  function url(kind,item) {
+    if(previewMode && item.preview_assets && item.preview_assets[kind]) return item.preview_assets[kind];
+    return '/assets/'+kind+'?kind='+encodeURIComponent(item.media_kind||'gift')+
+    '&key='+encodeURIComponent(item.media_key||item.gift_name)+'&v='+Date.now();}
+  unlock.addEventListener('click',async()=>{
+    try {audio.muted=true;await audio.play();audio.pause();audio.currentTime=0;audio.muted=false;unlock.style.display='none';}
+    catch {audio.muted=false;}
+  });
+  function finish(){
+    card.classList.remove('visible');
+    $('custom').style.display='none';$('customCanvas').replaceChildren();
+    clip.pause();clip.removeAttribute('src');clip.load();
+    audio.pause();
+    setTimeout(()=>{busy=false;showNext();},390);
+  }
+  async function runVideo(item){
+    clip.pause();clip.removeAttribute('src');clip.load();
+    clip.style.display='none';
+    if(!item.has_video)return false;
+    clip.src=url('video',item);clip.style.display='block';symbol.style.display='none';
+    clip.muted=!item.video_audio;clip.volume=clamp(item.volume,0,100,70)/100;
+    clip.currentTime=0;
+    try {await clip.play();return true;}
+    catch {
+      // Embedded sound can be blocked by autoplay; retry silent video.
+      clip.muted=true;
+      try {await clip.play();unlock.style.display=item.video_audio?'block':'none';return true;}
+      catch {clip.style.display='none';symbol.style.display='block';return false;}
+    }
+  }
+  function fitCanvas(){
+    $('customCanvas').style.transform='scale('+innerWidth/1280+','+innerHeight/720+')';
+  }
+  window.addEventListener('resize',fitCanvas);fitCanvas();
+  function renderCustom(item){
+    const canvas=$('customCanvas');canvas.replaceChildren();
+    $('custom').style.display='block';fitCanvas();
+    const layers=Array.isArray(item.elements)?item.elements.slice(0,30):[];
+    for(const layer of layers){
+      if(!layer||!['text','rect','image','video'].includes(layer.type))continue;
+      let el;
+      if(layer.type==='image'){
+        el=document.createElement('img');el.alt='';
+        el.style.objectFit='contain';
+        const src=previewMode&&item.preview_assets?.elements?.[layer.id];
+        el.src=src||'/assets/element?action='+encodeURIComponent(item.action_id||item.media_key)+
+         '&element='+encodeURIComponent(layer.id);
+      }else if(layer.type==='video'){
+        el=document.createElement('video');el.playsInline=true;el.autoplay=true;
+        el.muted=!item.video_audio;el.volume=clamp(item.volume,0,100,70)/100;el.loop=true;el.style.objectFit='contain';
+        const src=previewMode&&item.preview_assets?.elements?.[layer.id];
+        el.src=src||'/assets/element?action='+encodeURIComponent(item.action_id||item.media_key)+
+         '&element='+encodeURIComponent(layer.id);
+        el.play().catch(()=>{el.muted=true;el.play().catch(()=>{});});
+      }else{
+        el=document.createElement('div');
+        if(layer.type==='text'){
+          el.textContent=substitute(layer.text||'',item);
+          el.style.whiteSpace='pre-wrap';el.style.overflowWrap='anywhere';
+          el.style.color=/^#[0-9a-fA-F]{6}$/.test(layer.color)?layer.color:'#ffffff';
+          el.dir=layer.direction==='ltr'?'ltr':layer.direction==='auto'?'auto':'rtl';
+          el.style.direction=el.dir==='auto'?'inherit':el.dir;
+          el.style.textAlign=['left','right','center'].includes(layer.align)?layer.align:'right';
+          el.style.whiteSpace='pre-wrap';el.style.overflowWrap='anywhere';
+          el.style.fontFamily=String(layer.font||'Segoe UI').slice(0,60);
+          el.style.fontSize=clamp(layer.font_size,8,160,36)+'px';
+          el.style.fontWeight=layer.bold?'700':'400';
+          el.style.textShadow='0 2px 4px #0007';
+        }else{
+          el.style.background=/^#[0-9a-fA-F]{6}$/.test(layer.background)?layer.background:'#202A40';
+        }
+      }
+      el.style.position='absolute';
+      el.style.left=clamp(layer.x,0,1279,0)+'px';el.style.top=clamp(layer.y,0,719,0)+'px';
+      el.style.width=clamp(layer.w,12,1280,320)+'px';el.style.height=clamp(layer.h,12,720,80)+'px';
+      el.style.opacity=clamp(layer.opacity,0,100,100)/100;
+      el.style.borderRadius=clamp(layer.radius,0,100,12)+'px';
+      el.style.pointerEvents='none';canvas.append(el);
+    }
+  }
+
+  function showNext(){
+    if(busy || !queue.length)return;
+    busy=true;
+    const item=queue.shift();
+    // New actions start with an entirely blank transparent canvas.
+    $('custom').style.display='none';$('customCanvas').replaceChildren();
+    if(item.visual_layout){
+      card.classList.remove('visible');
+      renderCustom(item);
+      audio.pause();audio.removeAttribute('src');
+      if(item.play_sound!==false && item.has_sound){
+        audio.src=url('sound',item);audio.volume=clamp(item.volume,0,100,70)/100;
+        audio.play().catch(()=>{unlock.style.display='block';});
+      }
+      currentTimer=setTimeout(finish,clamp(item.duration_ms,1500,30000,4500));
+      return;
+    }
+    const lang=item.language==='en'?'en':'ar';
+    document.documentElement.lang=lang;
+    document.documentElement.dir=lang==='ar'?'rtl':'ltr';
+    const template=supported.has(item.template)?item.template:'neon';
+    const accent=/^#[0-9a-fA-F]{6}$/.test(item.accent)?item.accent:'#ac70ff';
+    const duration=clamp(item.duration_ms,1500,30000,4500);
+    card.className=template+(item.has_video && item.video_only?' media-only':'');
+    card.style.setProperty('--accent',accent);
+    symbol.style.display='block';symbol.textContent=item.icon||'🎁';
+    picture.style.display='none';picture.removeAttribute('src');
+    name.textContent=item.username||(lang==='en'?'Viewer':'مشاهد');
+    const defaultDescription=item.type==='action' ?
+      (item.trigger_type==='follow'?(lang==='en'?'Thanks for following!':'شكرًا على المتابعة!'):
+       item.trigger_type==='likes'?(lang==='en'?`Reached ${item.total_likes} likes!`:`وصلنا إلى ${item.total_likes} لايك!`):
+       item.trigger_type==='comment'?(item.comment||'Comment'):
+       item.trigger_type==='coins'?(lang==='en'?`Reached ${item.threshold} coins!`:`وصلنا إلى ${item.threshold} عملة!`):
+       (lang==='en'?`Sent ${item.gift_name} × ${item.quantity}`:`أرسل ${item.gift_name} × ${item.quantity}`)):
+       item.type==='coin_milestone'?
+      (lang==='en'?`🏆 ${item.threshold} coins milestone! Total: ${item.coins_total}`:
+        `🏆 إنجاز ${item.threshold} عملة! الإجمالي: ${item.coins_total}`):
+      (lang==='en'?`Sent ${item.gift_name} × ${item.quantity}`:`أرسل ${item.gift_name} × ${item.quantity}`);
+    description.textContent=item.message?substitute(item.message,item):defaultDescription;
+    if(item.has_image){
+      picture.src=url('image',item);picture.style.display='block';symbol.style.display='none';
+      picture.onerror=()=>{picture.style.display='none';symbol.style.display='';};
+    }
+    // Transparent page always. Only the active alert card or media paints pixels.
+    const display=item.show_overlay!==false;
+    if(display) requestAnimationFrame(()=>card.classList.add('visible'));
+    audio.pause();audio.removeAttribute('src');
+    (display?runVideo(item):Promise.resolve(false)).then(videoStarted=>{
+      if(!videoStarted && !item.has_image)symbol.style.display='block';
+      if(item.play_sound!==false && item.has_sound && !(item.video_audio && videoStarted)){
+        audio.src=url('sound',item);audio.volume=clamp(item.volume,0,100,70)/100;
+        audio.play().then(()=>{unlock.style.display='none';}).catch(()=>{unlock.style.display='block';});
+      }
+    });
+    currentTimer=setTimeout(finish,duration);
+  }
+  function connect(){
+    const ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
+    ws.onmessage=e=>{
+      try {const item=JSON.parse(e.data);
+        if(item.type==='gift'||item.type==='coin_milestone'||item.type==='action'){
+          queue.push(item);if(queue.length>60)queue.shift();showNext();
+        }}catch(err){console.warn('Malformed alert',err);}
+    };
+    ws.onclose=()=>setTimeout(connect,1700);
+    ws.onerror=()=>ws.close();
+  }
+  if(previewMode){
+    // This is triggered by the Windows app only: no WebSocket, server or live stream needed.
+    window.previewAlert = item => {
+      queue.length=0;
+      if(currentTimer!==null)clearTimeout(currentTimer);
+      busy=false;
+      audio.pause();clip.pause();
+      card.classList.remove('visible');$('custom').style.display='none';$('customCanvas').replaceChildren();
+      queue.push(item);showNext();
+    };
+    window.previewStop = () => {
+      queue.length=0;
+      if(currentTimer!==null)clearTimeout(currentTimer);
+      busy=false;
+      audio.pause();clip.pause();
+      card.classList.remove('visible');$('custom').style.display='none';$('customCanvas').replaceChildren();
+    };
+  } else {
+    connect();
+  }
+})();
+</script>
+</body></html>

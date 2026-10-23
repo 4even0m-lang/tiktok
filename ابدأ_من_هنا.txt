@@ -1,0 +1,46 @@
+Ven0m TikTok LIVE Assistant v6.3.1 Beta
+=======================================
+هذه النسخة تحتوي على المشروع الكامل (Source) لكي تجربها قبل رفعها إلى GitHub.
+هي ليست برنامج EXE جاهزًا، ولا تتطلب إنشاء مستودع GitHub لتشغيل ملفات Python.
+
+محتويات الحزمة:
+- TikTokAssistant/ : جميع ملفات البرنامج، الاختبارات، ملفات العرض، وأيقونات الهدايا (786 PNG).
+- .github/       : ملفات البناء السحابي الاختيارية لمستقبلًا.
+- TikTokAssistant/CHANGELOG_v6_3_0_Beta.md : الجديد وحدود هذه النسخة.
+
+خطوات التشغيل محليًا على Windows 10/11 (64-bit):
+1) ثبّت Python 3.12 x64 على جهاز التجربة إن لم يكن مثبتًا بالفعل.
+2) الأسهل: افتح مجلد TikTokAssistant واضغط مرتين على SETUP_AND_RUN_SOURCE.cmd (يحمّل المكتبات داخل بيئة للمشروع).
+   أو شغّل يدويًا في PowerShell:
+   py -3.12 -m venv .venv
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+   .\.venv\Scripts\python.exe main.py
+3) من داخل البرنامج افتح صفحة Overlay، واضغط Start Server.
+4) لإجراء تجربة دون TikTok LIVE اضغط Simulator / محاكي الأحداث.
+   يفترض أن تكون لديك Actions/Events معدة كي يظهر إشعار مطابق.
+5) لفتح Overlay من المتصفح المحلي: http://127.0.0.1:8765/overlay
+   ولمصدر LIVE Studio استخدم http://overlay.test:8765/overlay بعد إعداد hosts بموافقتك.
+
+الإعدادات الجديدة محفوظة في:
+%LOCALAPPDATA%\Ven0m\settings.json
+وملفات بيانات الهدايا في:
+%LOCALAPPDATA%\Ven0m\gift_catalog.json
+
+قبل استبدال نسخة قديمة: احتفظ بنسخة احتياطية من settings.json وملفات الوسائط الخاصة بك.
+إذا كانت إعدادات النسخة القديمة موجودة في نفس مجلد المشروع، ينقلها البرنامج إلى مجلد بيانات المستخدم عند أول تشغيل بشرط عدم وجود إعدادات أحدث مسبقًا.
+
+تجربة الاختبارات:
+   .\.venv\Scripts\python.exe -m unittest discover -s tests -v
+
+تجميع نسخة EXE، إن أردت لاحقًا: راجع README_BUILD_NO_PYTHON.md (يحتاج بناء على Windows، محليًا أو GitHub Actions).
+
+تنبيه: اختبارات المصدر نجحت؛ واجهة Windows والتثبيت واتصال TikTok الحقيقي تحتاج اختبارًا فعليًا على جهازك.
+الميّزات المخطط لها في 6.4/6.5 مثل الشاشات المتعددة والتحكم العالمي بالمؤثرات وخطوط Windows وGoal Overlays الاحترافية لم تُفعّل بعد في 6.3.
+
+
+مهم لإصلاح شاشة الخطأ الخاصة بـ overlay_server.py داخل dist\main\_internal:
+- لا تنسخ ملف overlay_server.py إلى مجلد _internal.
+- تجميع main.py مباشرة غير مدعوم للتوزيع.
+- اقرأ TikTokAssistant/README_OVERLAY_EXE_FIX_AR.md.
+- لبناء EXE الصحيح، ارفع جميع محتويات الحزمة إلى GitHub ثم شغّل
+  Build Ven0m Windows EXE and Installer من Actions.
